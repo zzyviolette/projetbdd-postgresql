@@ -1,0 +1,15 @@
+--***************************supprimer des billets expires*********************
+
+--supprimer automatiquement les billets mise en vente qui ne sont pas vendu apres une heure du comencement du spectacle :
+
+SELECT * FROM BOURSE.SPECTACLE ; --la date de spectacle 'crazy' est 2018-05-29 15:00:00 et son spectacle_id = 4
+
+SELECT * FROM BOURSE.BILLET WHERE annonce_id = (SELECT annonce_id FROM BOURSE.ANNONCE WHERE spectacle_id = 4 ); --il existe 5 billets 
+
+--avancer le temps : 
+
+UPDATE BOURSE.DATE SET valeur = '2018-05-29 16:00:01' WHERE date_id = 1;-- d'une heure et une seconde
+
+--les billet éxpirer ont étaient supprimés :
+
+SELECT * FROM BOURSE.BILLET WHERE annonce_id = (SELECT annonce_id FROM BOURSE.ANNONCE WHERE spectacle_id = 4 ); --il existe plus 

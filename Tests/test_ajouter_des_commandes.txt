@@ -1,0 +1,27 @@
+--***************************ajouter des commandes*********************
+--ajout_commande(annonce_id,nb de billets, les numeros)
+--on doit acheter tous les billets dans le cas bloc = true sinon ca va échouer
+--dans le fichier insert_data, on a insere l'annonce(id=1):SELECT ajout_annonce(ARRAY[1,2,3,4,5],TRUE,14,1,'vip'); ici TRUE cest a dire en bloc
+
+UPDATE BOURSE.DATE SET valeur = '2018-05-21 15:00:00' WHERE date_id = 1;--le jour ou on veux faire une commande
+
+SELECT ajout_commande(1,2,ARRAY[1,2]);--échouer
+
+--tester l'achat d'un billet indisponible 
+--dans le fichier insert_data, on a deja fait la commande:SELECT ajout_commande(3,1,ARRAY[21]); cest a dire numero 21 est indisponible 
+
+SELECT ajout_commande(3,1,ARRAY[21]);--doit echoue
+
+--tester si le solde de l'utilisateur ne suffit pas 
+--le prix revente de la deuxieme annonce est 19, donc si on acheter 5 billets le montant va etre égale à 100 (19 * 5 + 5 = 100); le solde de l'utilisateur ne suiffit pas :
+
+SELECT * FROM BOURSE.USER WHERE user_id = 1;--savoir la solde de utlisateur
+SELECT ajout_commande(1,5,ARRAY[1,2,3,4,5]);--violation du check solde > 0
+SELECT * FROM BOURSE.USER WHERE user_id = 1;--le meme solde parceque la commande n'a pas était éffectuer
+
+--le cas normale de faire une commande apres ca on ajoute un message dans le tableau message pour notifier le vendeur et biensure en meme temps le solde de l'utilisateur (acheteur) est reduit de la somme vers le compte du system :
+
+SELECT ajout_commande(4,1,ARRAY[31]);--le prix de revente de annonce 4 est 4, le montant = 4 + frais de gestion 5 = 9, l'ancien solde = 50 , donc mtn il devient 41 
+
+SELECT * FROM BOURSE.USER WHERE user_id = 1;--verfier solde de lacheteur
+SELECT * FROM BOURSE.MESSAGE;--verfier message pour le vendeur

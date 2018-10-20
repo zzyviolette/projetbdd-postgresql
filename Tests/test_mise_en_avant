@@ -1,0 +1,16 @@
+--***************************mise en avant des annonces************************
+--le solde de vendeur doit etre réduit(appliquer_miseAvant(annonce_id))
+--dans le fichier insert_data, pour l'annonce_id = 3, on a ajoute 5 billets [numero21-25]
+--et on a ajoute une commande pour cette annonce(numero21) donc, 4 billets disponibles dans cette annonce
+SELECT appliquer_miseAvant(3);
+
+--tester le solde de l'utilisateur 1 (au debut egale 100-89(au total dans insert_data) = 11 apres cette methode doit etre 1) 
+SELECT * FROM BOURSE.USER WHERE user_id = 1;
+--augemnte la solde de l'utilisateur pour les tests suivants
+UPDATE BOURSE.USER SET solde = 50 WHERE user_id = 1;
+--***************************afficher des annonces************************
+--satisfair la condition mise en avant (affichageDispo(),affichageTous())
+--annonce id = 3 doit etre dans le debut de resultat de liste
+SELECT * FROM affichageTous();--affichaer numero 21-25
+SELECT * FROM affichageDispo();--affichaer numero 22-25 pas de 21, les billet seulement disponible
+

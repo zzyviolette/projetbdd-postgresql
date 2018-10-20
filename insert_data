@@ -1,0 +1,46 @@
+--ajouter_user(nom,prenom,login,password) ici login est unique
+SELECT ajout_user('rafik','zii','postgres','999');
+SELECT ajout_user('martin','marie','marielogin','222');
+SELECT ajout_user('bernard','jean','jeanlogin','333');
+SELECT ajout_user('thomas','pierre','pierrelogin','444');
+SELECT ajout_user('richard','nicole','nicolelogin','555');
+SELECT ajout_user('laurent','isabelle','isabellelogin','666');
+
+--ajoter_date(valeur)
+SELECT ajout_date ('2018-04-21 15:00:00');
+
+--ajouter_categorie(nom,prix)
+
+SELECT ajout_categorie('vip',20);
+SELECT ajout_categorie('balcon',15);
+SELECT ajout_categorie('normal',10);
+SELECT ajout_categorie('arriere',5);
+
+SELECT ajout_spectacle('Helene','2012','2018-07-29 15:00:00',1);
+SELECT ajout_spectacle('Inmost','2001','2018-08-25 15:00:00',3);
+SELECT ajout_spectacle('Artshow','2005','2018-06-23 15:00:00',2);
+SELECT ajout_spectacle('Crazy','3001','2018-05-29 15:00:00',1);
+SELECT ajout_spectacle('Les Mardis Découverte','3009','2018-07-29 15:00:00',1);
+SELECT ajout_spectacle('Haroun','2035','2018-06-21 15:00:00',2);
+SELECT ajout_spectacle('Haroun','2035','2018-05-28 15:00:00',2);
+SELECT ajout_spectacle('Inmost','2030','2018-07-26 15:00:00',3);
+
+--ajout_annonce(numeros_de_billets,bloc,prix_vente, id de spectacle,categorie de spectacle) 
+--vip(1-10) balcon(11-20) normale(21-30) arrier(apres 31)
+
+UPDATE BOURSE.DATE SET valeur = '2018-04-21 15:00:00' WHERE date_id = 1;
+
+SELECT ajout_annonce(ARRAY[1,2,3,4,5],TRUE,19,1,'vip');
+SELECT ajout_annonce(ARRAY[11,12,13,14,15],TRUE,14,1,'balcon');
+
+UPDATE BOURSE.DATE SET valeur = '2018-04-22 15:00:00' WHERE date_id = 1;
+
+SELECT ajout_annonce(ARRAY[21,22,23,24,25],FALSE,9,2,'normal');
+SELECT ajout_annonce(ARRAY[31,32,33,34,35],FALSE,4,2,'arriere');
+
+UPDATE BOURSE.DATE SET valeur = '2018-05-21 15:00:00' WHERE date_id = 1;
+
+SELECT ajout_commande(2,5,ARRAY[11,12,13,14,15]);--montant = 75
+SELECT ajout_commande(3,1,ARRAY[21]);--montant = 14 //au total 75+14 = 89
+
+

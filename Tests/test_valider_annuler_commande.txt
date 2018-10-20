@@ -1,0 +1,29 @@
+--***************************valider une commande************************
+--ajouter une operation ‘valider’ dans l'historique et augmenter le solde du vendeur nouveau solde égale à solde + montant de commande validée : 
+
+SELECT * FROM BOURSE.USER WHERE user_id = 1;
+SELECT * FROM BOURSE.COMMANDE WHERE commande_id = 3;--le montant de ce commande egale 9
+
+SELECT valider_commande(3);
+SELECT * FROM BOURSE.USER WHERE user_id = 1; --donc, il devient 41+9 = 50
+
+--***************************annuler une commande************************
+--ajouter une operation ‘annuler’ dans l'historique et modifier le tableau billet (disponible redevient égale à true) et rembourse l'acheteur :
+--annuler manuellement en appelant la methode annuler_commande(commande_id)
+
+SELECT * FROM BOURSE.COMMANDE WHERE commande_id = 2;--le montant de ce commande egale 14
+
+SELECT annuler_commande(2);
+
+SELECT * FROM BOURSE.USER WHERE user_id = 1; --donc, il devient 50+14 = 64(l'achecteue est rembourse)
+
+--annuler automatiquement(le cas ou apres 24h l'acheteur ne recoit pas les billets) par le trigger(ici on avance le temps pour cela on modifie le tableau date)
+
+SELECT * FROM BOURSE.HISTORIQUE; --savoir le date de achat(2018-05-21 15:00:00), ici seulement la premiere commande n'est pas valider ni annuler :
+
+SELECT * FROM BOURSE.COMMANDE WHERE commande_id = 1;--le montant de ce commande egale 75
+
+UPDATE BOURSE.DATE SET valeur = '2018-05-22 15:00:01' WHERE date_id = 1;--avancer un jour et une seconde
+
+SELECT * FROM BOURSE.HISTORIQUE;
+SELECT * FROM BOURSE.USER WHERE user_id = 1; --la solde devient 64+75 = 139(l'achecteue est rembourse)

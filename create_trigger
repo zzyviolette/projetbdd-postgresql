@@ -1,0 +1,24 @@
+--Drop trigger achat_his_msg on BOURSE.COMMANDE;
+--Drop trigger ver_billet_alerte on BOURSE.BILLET;
+
+--ajouter l’operation ‘achat’ dans le tableau de historique
+create trigger achat_his_msg after insert on BOURSE.COMMANDE
+for each row execute procedure ajout_historique_et_message();
+
+--insert,update sur la table verifie_billet -> pour verifier ce billet de specatacle si il y a un alerte
+create trigger ver_billet_alerte after insert OR update ON BOURSE.BILLET
+for each row execute procedure verifie_billet();
+
+
+create trigger annuler_commande_auto after update on BOURSE.DATE
+for each row execute procedure annuler_commande_automatique();
+
+
+create trigger supprimer_billet_auto after update ON BOURSE.DATE
+for each row execute procedure supprimer_billet_automatique();
+
+
+
+
+
+

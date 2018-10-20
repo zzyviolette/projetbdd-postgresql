@@ -1,0 +1,21 @@
+--***************************definir une alerte************************
+--selon le titre et categorie de spectacle, lors de l'ajout de l'alerte si y a des billets disponibles ca va échouer à ajouter l'alerte, on considère 2 cas : 
+
+--le cas echoue :
+
+SELECT ajout_alerte('Helene','vip');
+
+--le cas normal
+
+SELECT ajout_alerte('Crazy','vip');
+
+SELECT * FROM BOURSE.ALERTE;--pour vérifier
+
+--ajouter une nouvelle annonce qui correspond au critère de cet alerte;
+
+SELECT ajout_annonce(ARRAY[1,2,3,4,5],TRUE,19,4,'vip');
+
+--ca va ajouter un message dans le tableau message pour notifier l’utilisateur et supprimer l'alerte précédente (en activant un trigger)
+
+SELECT * FROM BOURSE.MESSAGE;
+SELECT * FROM BOURSE.ALERTE;

@@ -1,0 +1,474 @@
+--les fonctions
+--ajout d'un utilisateur 
+
+CREATE OR REPLACE FUNCTION ajout_user(name VARCHAR, prenam VARCHAR, log VARCHAR, pass VARCHAR) RETURNS BOOLEAN AS $$
+DECLARE
+tmp INTEGER := 0;
+BEGIN
+    SELECT COUNT(*) INTO tmp FROM BOURSE.USER WHERE (login = log AND password = pass);
+
+    IF tmp = 0 THEN INSERT INTO BOURSE.USER (nom, prenom, login, password) VALUES (name, prenam, log, pass);
+
+    ELSIF tmp > 0 THEN RAISE 'user existe deja' USING ERRCODE='20004';
+	return false;
+
+    END IF;
+return true;
+END;
+$$ language 'plpgsql';
+
+
+--ajout d'une categorie
+
+CREATE OR REPLACE FUNCTION ajout_categorie(tit cate, pri float8) RETURNS BOOLEAN AS $$
+BEGIN
+    INSERT INTO BOURSE.CATEGORIE (nom, prix_original) VALUES (tit, pri);
+    return true;
+END;
+$$ language 'plpgsql';
+
+
+--ajout d'un spectacle
+
+CREATE OR REPLACE FUNCTION ajout_spectacle(tit VARCHAR, sal VARCHAR, dat TIMESTAMP, dur INTEGER) RETURNS BOOLEAN AS $$
+BEGIN
+    INSERT INTO BOURSE.SPECTACLE (titre, salle, date_spectacle, duree) VALUES (tit, sal, dat, dur);
+    return true;
+END;
+$$ language 'plpgsql';
+
+
+--ajout d'une date
+
+CREATE OR REPLACE FUNCTION ajout_date(dat TIMESTAMP) RETURNS BOOLEAN AS $$
+BEGIN
+    INSERT INTO BOURSE.DATE (valeur) VALUES (dat);
+    return true;
+END;
+$$ language 'plpgsql';
+
+
+--ajout d'un message
+
+CREATE OR REPLACE FUNCTION ajout_message(uid INTEGER, msg VARCHAR) RETURNS BOOLEAN AS $$
+BEGIN
+    INSERT INTO BOURSE.MESSAGE (user_id, contenue) VALUES (uid,msg);
+    return true;
+END;
+$$ language 'plpgsql';
+
+
+--ajout d'une alerte
+
+CREATE OR REPLACE FUNCTION ajout_alerte(specttit VARCHAR, cat cate) RETURNS BOOLEAN AS $$
+DECLARE
+tmp INTEGER := 0;
+myid INTEGER[];
+x INTEGER;
+uid INTEGER;
+cid INTEGER;
+counter INTEGER := 0;
+verificateur INTEGER :=0;
+BEGIN
+    SELECT COUNT(*) INTO tmp FROM BOURSE.SPECTACLE WHERE titre = specttit;
+
+    IF tmp = 0 THEN RAISE 'spectacle existe pas' USING ERRCODE='20004';
+    return false;
+
+    ELSIF tmp > 0 THEN SELECT categorie_id,COUNT(*) INTO cid,tmp FROM BOURSE.CATEGORIE WHERE nom = cat GROUP BY categorie_id;
+
+        IF tmp = 0 THEN RAISE 'categorie existe pas' USING ERRCODE='20004';
+        return false;
+
+        ELSIF tmp > 0 THEN  myid := ARRAY(SELECT spectacle_id from BOURSE.SPECTACLE where BOURSE.SPECTACLE.titre = specttit AND BOURSE.SPECTACLE.date_spectacle >= CURRENT_TIMESTAMP);
+        END IF;
+
+    END IF;
+
+
+    SELECT user_id INTO uid FROM BOURSE.USER WHERE login = CURRENT_USER;
+    FOREACH x IN ARRAY myid
+        LOOP
+        	SELECT count(*) INTO counter FROM BOURSE.billet NATURAL JOIN BOURSE.annonce WHERE(annonce.spectacle_id = x AND billet.categorie_id = cid AND billet.disponible = true);
+        	IF counter = 0 THEN INSERT INTO BOURSE.ALERTE (user_id, spectacle_id,categorie_id) VALUES (uid, x,cid);
+        	verificateur := verificateur +1;
+        	END IF;
+        END LOOP;
+    IF verificateur > 0 THEN return true;
+    ELSE RAISE 'billet deja disponible' USING ERRCODE='20014';
+    	return false;
+    END IF;
+return false;
+END;
+$$ language 'plpgsql';
+
+
+--ajout dun historique
+
+CREATE OR REPLACE FUNCTION ajout_historique(cid INTEGER, op ope,uneDate TIMESTAMP) RETURNS BOOLEAN AS $$
+BEGIN
+    INSERT INTO BOURSE.HISTORIQUE (commande_id, operation, date_operation) VALUES (cid, op, uneDate);
+    return true;
+END;
+$$ language 'plpgsql';
+
+
+--verifie si les billets sont consecutive
+
+CREATE OR REPLACE FUNCTION consecutive(somme INTEGER,numeroBillet INTEGER[]) RETURNS BOOLEAN AS $$
+DECLARE
+ymax INTEGER :=0 ;
+ymin INTEGER :=0 ;
+BEGIN
+	ymax := (SELECT max(x) FROM unnest(numeroBillet) AS x);
+	ymin := (SELECT min(x) FROM unnest(numeroBillet) AS x);
+	IF somme = (ymax - ymin +1) THEN return true;
+	ELSE RAISE 'billet pas consecutive' USING ERRCODE='20024';
+		return false;
+	END IF;
+END;
+$$ language 'plpgsql';
+
+
+--ajout d'une annonce et billet
+
+CREATE OR REPLACE FUNCTION ajout_annonce(numbil int[], blok BOOLEAN, prix float8, specid INTEGER, speccate cate) RETURNS BOOLEAN AS $$
+DECLARE
+tmp INTEGER := 0;
+anid INTEGER := 0;
+somme INTEGER := 0;
+x int;
+cid INTEGER;
+pc INTEGER;
+uid INTEGER := 0;
+nbuid INTEGER;
+nombre INTEGER;
+uneDate TIMESTAMP;
+BEGIN
+
+	SELECT valeur INTO uneDate FROM BOURSE.date WHERE date_id = 1;
+    SELECT categorie_id,prix_original,COUNT(*) INTO cid,pc,tmp FROM BOURSE.CATEGORIE WHERE nom = speccate GROUP BY categorie_id;
+
+    IF tmp = 0 THEN RAISE 'categorie n existe pas' USING ERRCODE='20004';
+    return false;
+    END IF;
+
+    FOREACH x IN ARRAY numbil
+        LOOP
+            somme := somme +1;
+        END LOOP;
+
+    IF (consecutive(somme,numbil)) THEN
+    END IF;
+
+    IF pc < prix THEN RAISE 'prix est plus grand' USING ERRCODE='20006';
+    ELSE SELECT user_id,count(*) INTO uid,nbuid FROM BOURSE.USER WHERE login = CURRENT_USER GROUP BY user_id;
+        IF nbuid > 0 THEN SELECT COUNT(*) INTO nombre FROM BOURSE.annonce WHERE annonce.date_mise_vente > uneDate - INTERVAL '1' MONTH AND user_id = uid;
+
+			IF nombre >= 10 THEN RAISE '10 annonce par mois svp' USING ERRCODE='20007';
+			ELSIF somme < 11 THEN INSERT INTO BOURSE.ANNONCE (user_id, spectacle_id, date_mise_vente, bloc, pix_revente) VALUES (uid, specid, uneDate, blok, prix) RETURNING annonce_id INTO anid;
+			ELSE RAISE '10 billet par annonce svp' USING ERRCODE='20008';
+			END IF;
+			FOREACH x IN ARRAY numbil
+				LOOP
+					INSERT INTO BOURSE.BILLET (annonce_id, categorie_id, numero_place, disponible) VALUES (anid, cid, x, true);
+				END LOOP;
+			return true;
+		ELSE RAISE 'user nest pas enregistrer' USING ERRCODE='20010';
+		END IF;
+	END IF;
+return false;
+END;
+$$ language 'plpgsql';
+
+
+--Verifier condition a ajouter une commande(en bloc ou pas si en bloc verifier le nombre de billet qu’il veut acheter)
+
+CREATE OR REPLACE FUNCTION verfier_bloc(anid INTEGER, nombreBilletAcheter INTEGER) RETURNS BOOLEAN AS $$
+DECLARE
+enbloc BOOLEAN;
+nb INTEGER := 0;
+BEGIN
+SELECT bloc INTO enbloc FROM BOURSE.ANNONCE WHERE annonce_id = anid;
+IF(enbloc = TRUE) THEN
+      SELECT count(*) INTO nb FROM BOURSE.BILLET WHERE annonce_id = anid;
+      IF(nb = nombreBilletAcheter) THEN RETURN TRUE;
+      ELSE RETURN FALSE;
+      END IF;
+ELSE RETURN TRUE;
+END IF;
+END;
+$$ language 'plpgsql';
+
+
+
+--verifier la disponniblité des billets
+
+CREATE OR REPLACE FUNCTION verfier_disponibilite_billet(anid INTEGER, numeroBillet INTEGER[]) RETURNS BOOLEAN AS $$
+DECLARE
+tomp BOOLEAN := true;
+x INTEGER;
+tmpB BOOLEAN;
+BEGIN
+FOREACH x IN ARRAY numeroBillet
+	    	LOOP
+	            SELECT disponible INTO tmpB FROM BOURSE.billet WHERE numero_place = x AND annonce_id = anid;
+	            IF tmpB = false THEN return false;
+	            					 EXIT;
+	            END IF;
+			END LOOP;
+return true;
+END;
+$$ language 'plpgsql';
+
+
+--ajout d'une commande
+
+CREATE OR REPLACE FUNCTION ajout_commande(anid INTEGER, nombreBilletAcheter INTEGER, numeroBillet INTEGER[]) RETURNS INTEGER AS $$
+
+DECLARE
+tmp INTEGER := 0;
+myid INTEGER := 0;
+x INTEGER;
+uid INTEGER;
+uneDate TIMESTAMP;
+—cursolde INTEGER;
+BEGIN
+
+    SELECT valeur INTO uneDate FROM BOURSE.DATE WHERE date_id = 1;
+
+    IF (verfier_bloc(anid,nombreBilletAcheter)) THEN
+        IF (verfier_disponibilite_billet(anid,numeroBillet)) THEN
+            -- bloc = true -> tmp = prix du bloc
+            -- bloc = false -> tmp = prix d'un seul billet
+            SELECT pix_revente INTO tmp FROM BOURSE.ANNONCE WHERE annonce_id = anid;
+
+            -- achat du bloc
+            SELECT user_id  INTO uid FROM BOURSE.USER WHERE login = CURRENT_USER;
+            IF nombreBilletAcheter = 0 THEN
+                --IF cursolde >= (tmp+5) THEN 
+                UPDATE BOURSE.USER SET solde = solde - (tmp+5) WHERE user_id = uid;
+                INSERT INTO BOURSE.COMMANDE (annonce_id, user_id, date_commande, montant) VALUES (anid, uid, uneDate, tmp+5) RETURNING commande_id INTO myid;
+                UPDATE BOURSE.BILLET SET disponible = false WHERE annonce_id = anid;
+                --ELSE RAISE 'solde ne suiffisant pas!' USING ERRCODE='20020';
+                --END IF;
+            ELSE
+                --IF cursolde >= (nombreBilletAcheter*tmp+5) THEN 
+                UPDATE BOURSE.USER SET solde = solde - (nombreBilletAcheter*tmp+5) WHERE user_id = uid;
+                INSERT INTO BOURSE.COMMANDE (annonce_id, user_id, date_commande, montant) VALUES (anid, uid, uneDate, nombreBilletAcheter*tmp+5) RETURNING commande_id INTO myid;
+                FOREACH x IN ARRAY numeroBillet
+                LOOP
+                    UPDATE BOURSE.BILLET SET disponible = false , commande_id = myid WHERE annonce_id = anid AND numero_place = x;
+                END LOOP;
+                --ELSE RAISE 'solde ne suiffisant pas!' USING ERRCODE='20020';
+                --END IF;
+            END IF;
+            return myid;
+            ELSE RAISE 'billet pas disponible' USING ERRCODE='20019';
+                return 0;
+            END IF;
+        ELSE RAISE 'achat avec bloc ereur' USING ERRCODE='20009';
+            return 0;
+    END IF;
+END;
+$$ language 'plpgsql';
+
+
+
+--valider commande 
+
+CREATE OR REPLACE FUNCTION valider_commande(id_com INTEGER) RETURNS BOOLEAN AS $$
+DECLARE
+mon INTEGER;
+uid_vendeur INTEGER;
+curr TIMESTAMP;
+BEGIN
+    SELECT valeur INTO curr FROM BOURSE.date WHERE date_id = 1;
+    PERFORM ajout_historique(id_com,'valider',curr);
+    SELECT montant INTO mon FROM BOURSE.COMMANDE WHERE commande_id = id_com;
+    SELECT BOURSE.ANNONCE.user_id INTO uid_vendeur FROM BOURSE.BILLET, BOURSE.ANNONCE WHERE BOURSE.BILLET.annonce_id = BOURSE.ANNONCE.annonce_id AND BOURSE.BILLET.commande_id = id_com;
+    UPDATE BOURSE.USER SET solde = solde + mon - 5  WHERE user_id = uid_vendeur;
+    return true;
+END;
+$$ language 'plpgsql';
+
+
+
+--annuler commande 
+
+CREATE OR REPLACE FUNCTION annuler_commande(id_com INTEGER) RETURNS BOOLEAN AS $$
+DECLARE
+mon INTEGER;
+id_ann INTEGER;
+curr TIMESTAMP;
+id_acheteur INTEGER;
+BEGIN
+    SELECT valeur INTO curr FROM BOURSE.date WHERE date_id = 1;
+    PERFORM ajout_historique(id_com,'annuler',curr);
+    SELECT user_id, montant INTO id_acheteur,mon FROM BOURSE.COMMANDE WHERE commande_id = id_com;
+    UPDATE BOURSE.BILLET SET disponible = true WHERE commande_id = id_com;
+    UPDATE BOURSE.USER SET solde = solde + mon WHERE user_id = id_acheteur;
+    return true;
+END;
+$$ language 'plpgsql';
+
+
+
+
+--appliquer la mise en avant 
+
+CREATE OR REPLACE FUNCTION appliquer_miseAvant(id_ann INTEGER) RETURNS BOOLEAN AS $$
+DECLARE
+id_user INTEGER;
+--cur_solde INTEGER;
+BEGIN
+    SELECT user_id INTO id_user FROM BOURSE.ANNONCE WHERE annonce_id = id_ann;
+    --SELECT solde INTO cur_solde FROM BOURSE.USER WHERE user_id = id_user;
+    --IF cur_solde>=10 THEN
+    UPDATE BOURSE.USER SET solde = solde - 10 WHERE user_id = id_user;
+    UPDATE BOURSE.ANNONCE SET mise_en_avant = true WHERE annonce_id = id_ann;
+    RETURN TRUE;
+    --ELSE RAISE 'solde ne suiffisant pas!' USING ERRCODE='20020';
+    RETURN FALSE;
+    --END IF;
+END;
+$$ language 'plpgsql';
+
+
+
+--chercher billet 
+
+CREATE OR REPLACE FUNCTION chercher_billet(numbillet INTEGER, specid INTEGER) RETURNS BOOLEAN AS $$
+BEGIN
+    PERFORM * FROM BOURSE.billet natural join BOURSE.annonce WHERE BOURSE.billet.numero_place = numbillet AND BOURSE.annonce.spectacle_id = specid AND BOURSE.billet.disponible = true;
+    IF FOUND THEN RAISE NOTICE 'le billet que vous chercher est disponible chez nous';
+                return true;
+    ELSE RAISE 'on a pas ce billet' USING ERRCODE='20031';
+                return false;
+    END IF;
+END;
+$$ language 'plpgsql';
+
+
+
+--fonction d'affichage (mise en avant en premier) éxécution : SELECT * FROM affichageDispo();
+
+CREATE OR REPLACE FUNCTION affichageDispo() RETURNS TABLE(titre_spectacle VARCHAR,categorie cate,numero_place INTEGER,prix float8) AS $$
+BEGIN
+  return QUERY SELECT spectacle.titre,categorie.nom,billet.numero_place,annonce.pix_revente
+    FROM Bourse.annonce NATURAL JOIN Bourse.spectacle NATURAL JOIN Bourse.billet NATURAL JOIN Bourse.categorie WHERE Bourse.billet.disponible = true ORDER BY NOT(annonce.mise_en_avant);
+END;
+$$  LANGUAGE plpgsql;
+
+
+--fonction d'affichage de tous dispnible et pas disponible(mise en avant en premier) éxécution : SELECT * FROM affichageTous();
+
+CREATE OR REPLACE FUNCTION affichageTous() RETURNS TABLE(titre_spectacle VARCHAR,categorie cate,numero_place INTEGER,prix float8,disponible boolean) AS $$
+BEGIN
+  return QUERY SELECT spectacle.titre,categorie.nom,billet.numero_place,annonce.pix_revente,billet.disponible
+    FROM Bourse.annonce NATURAL JOIN Bourse.spectacle NATURAL JOIN Bourse.billet NATURAL JOIN Bourse.categorie ORDER BY NOT(annonce.mise_en_avant);
+END;
+$$  LANGUAGE plpgsql;
+
+
+--fonction d'afichage de tous les billet de spectacle correspondant a l'interval de date que je veus, éxécution : SELECT * FROM rechercher_billet_dateTous();
+
+CREATE OR REPLACE FUNCTION rechercher_billet_dateTous(debut DATE, fin DATE) RETURNS TABLE(titre_spectacle VARCHAR,categorie cate,numero_place INTEGER,prix float8,disponible boolean) AS $$
+BEGIN
+  RETURN QUERY SELECT spectacle.titre,categorie.nom,billet.numero_place,annonce.pix_revente,billet.disponible
+  FROM Bourse.annonce NATURAL JOIN Bourse.spectacle NATURAL JOIN Bourse.billet NATURAL JOIN Bourse.categorie
+  WHERE billet.disponible = TRUE AND (spectacle.date_spectacle BETWEEN debut AND fin) ORDER BY NOT(annonce.mise_en_avant);
+END;
+$$  LANGUAGE plpgsql;
+
+
+--fonction d'affichage des billets (mise en avant en premier) éxécution : SELECT * FROM affichage_billets();
+
+CREATE OR REPLACE FUNCTION affichage_billets(titreSpec VARCHAR) RETURNS TABLE(titre_spectacle VARCHAR,categorie cate,numero_place INTEGER,prix float8) AS $$
+BEGIN
+    return QUERY SELECT spectacle.titre,categorie.nom,billet.numero_place,annonce.pix_revente
+    FROM Bourse.annonce NATURAL JOIN Bourse.spectacle NATURAL JOIN Bourse.billet NATURAL JOIN Bourse.categorie WHERE Bourse.spectacle.titre = titreSpec AND Bourse.billet.disponible = true ORDER BY NOT(annonce.mise_en_avant);
+END;
+$$  LANGUAGE plpgsql;
+
+
+--fonction pour les triggers :
+
+--ver_billet_alerte
+
+CREATE OR REPLACE FUNCTION verifie_billet() RETURNS Trigger AS $$
+DECLARE
+id_spec INTEGER := 0;
+tmp INTEGER :=0;
+id_users INTEGER[];
+x INTEGER;
+BEGIN
+    SELECT spectacle_id INTO id_spec FROM BOURSE.ANNONCE WHERE annonce_id = NEW.annonce_id;
+
+    SELECT COUNT(*) INTO tmp FROM BOURSE.ALERTE WHERE (categorie_id = NEW.categorie_id AND spectacle_id = id_spec);
+
+    IF tmp != 0 THEN
+    id_users := ARRAY(select user_id from BOURSE.ALERTE WHERE spectacle_id = id_spec AND categorie_id = NEW.categorie_id);
+    FOREACH x IN ARRAY id_users
+      LOOP
+      INSERT INTO BOURSE.MESSAGE (user_id, contenue) VALUES (x,'Y a des nouveaux billets disponibles !');
+      DELETE FROM BOURSE.ALERTE WHERE (user_id = x AND spectacle_id = id_spec AND categorie_id = NEW.categorie_id);
+      END LOOP;
+    ELSE RAISE NOTICE 'pas de alerte sur ce billet!' USING ERRCODE='20005';
+    END IF;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+
+--ajout_historique_et_message 
+
+CREATE OR REPLACE FUNCTION ajout_historique_et_message() RETURNS Trigger AS $$
+DECLARE
+id_user INTEGER;
+BEGIN
+    PERFORM ajout_historique(NEW.commande_id,'achat',NEW.date_commande);
+    SELECT user_id INTO id_user FROM BOURSE.ANNONCE WHERE annonce_id = NEW.annonce_id;
+    INSERT INTO BOURSE.MESSAGE (user_id,contenue) VALUES (id_user,'Vos billets sont vendu!');
+    RETURN NEW;
+
+END;
+$$ language 'plpgsql';
+
+
+--annuler_commande_automatique
+
+CREATE OR REPLACE FUNCTION annuler_commande_automatique() RETURNS Trigger AS $$
+DECLARE
+id_commandes INTEGER[];
+x INTEGER;
+c INTEGER;
+BEGIN 
+    id_commandes := ARRAY(select commande_id from BOURSE.HISTORIQUE WHERE BOURSE.HISTORIQUE.operation = 'achat' AND NEW.valeur > date_operation + INTERVAL '24' HOUR);
+    FOREACH x IN ARRAY id_commandes
+        LOOP
+            SELECT COUNT(*) INTO c FROM BOURSE.HISTORIQUE WHERE commande_id = x;
+            IF c=1 THEN PERFORM annuler_commande(x); 
+            END IF;
+        END LOOP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+
+--supprimer_billet_automatique
+
+CREATE OR REPLACE FUNCTION supprimer_billet_automatique() RETURNS Trigger AS $$
+DECLARE
+id_spectacles INTEGER[];
+x INTEGER;
+BEGIN 
+    id_spectacles := ARRAY(select spectacle_id from BOURSE.SPECTACLE WHERE NEW.valeur > date_spectacle + INTERVAL '1' HOUR);
+    FOREACH x IN ARRAY id_spectacles
+        LOOP
+            DELETE FROM BOURSE.BILLET USING BOURSE.ANNONCE WHERE BOURSE.ANNONCE.annonce_id = BOURSE.BILLET.annonce_id AND BOURSE.BILLET.disponible = TRUE AND BOURSE.ANNONCE.spectacle_id = x ;
+        END LOOP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+

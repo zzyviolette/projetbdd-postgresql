@@ -1,0 +1,10 @@
+--***************************chercher des billets*********************
+--selon titre de spectacle ( affichage_billets(titreSpec))
+SELECT * FROM affichage_billets('Helene');--disponible = true 
+
+--selon intervalle de date de representation de spectacle(rechercher_billet_dateTous(date_debut,date_fin))
+SELECT * FROM rechercher_billet_dateTous('2018-07-28','2018-07-30');
+
+--selon le id de spectacle et numero de billet(chercher_billet(numro,spectacle_id))
+SELECT chercher_billet(1,1);--EXSTE
+SELECT chercher_billet(11,1);--EXISTE PAS 

@@ -1,0 +1,20 @@
+--***************************creer des annonces************************
+--tester le prix revente avec le prix origine
+SELECT ajout_annonce(ARRAY[6],TRUE,21,1,'vip');--le prix origine de vip est 20, ici le prix de revente est 21>20, donc echoue
+
+--tester le nombre de billets d'une annonce <= 10
+SELECT ajout_annonce(ARRAY[31,32,33,34,35,36,37,38,39,40,41], FALSE,4,1,'arriere');--11 billets > 10 par une annonce
+
+--tester le numéros de billets sont consécutives ou pas 
+SELECT ajout_annonce(ARRAY[31,35],FALSE,4,1,'arriere');
+
+--tester dix annonces max par mois pour un utlisateur
+--dans le insert_data fichier, il existe deja 4 annonces crees par utilisateur 1 (deux annonces a 2018-04-21 et les deux autres a 2018-04-22)
+UPDATE BOURSE.DATE SET valeur = '2018-04-23 15:00:00' WHERE date_id = 1;--modifier current_date
+SELECT ajout_annonce(ARRAY[6],TRUE,19,1,'vip');--5eme
+SELECT ajout_annonce(ARRAY[7],TRUE,19,1,'vip');--6eme
+SELECT ajout_annonce(ARRAY[8],TRUE,19,1,'vip');--7eme
+SELECT ajout_annonce(ARRAY[9],TRUE,19,1,'vip');--8eme
+SELECT ajout_annonce(ARRAY[10],TRUE,19,1,'vip');--9eme
+SELECT ajout_annonce(ARRAY[31],FALSE,4,1,'arriere');--10eme
+SELECT ajout_annonce(ARRAY[32],FALSE,4,1,'arriere');--11eme echoue

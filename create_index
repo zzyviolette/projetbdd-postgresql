@@ -1,0 +1,2 @@
+CREATE INDEX disponible_idx ON BOURSE.BILLET (disponible);
+CREATE INDEX annonce_idx ON BOURSE.BILLET (annonce_id);
